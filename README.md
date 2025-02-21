@@ -22,7 +22,7 @@ Test FileSync
 
 ## Requirements
 - [Rust](https://www.rust-lang.org/tools/install)
-- [NodeJS](https://nodejs.org/en)
+- [NodeJS](https://nodejs.org/en) **(Optional)**
 
 ## Download & Run
 

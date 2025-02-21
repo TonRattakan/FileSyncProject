@@ -10,7 +10,6 @@ use serde_json::json;
 fn upload_file(file_path: String) -> String {
     let mut stream = TcpStream::connect("127.0.0.1:8484").expect("Failed to connect to server");
 
-    // อ่านไฟล์
     let mut file = File::open(&file_path).expect("Failed to open file");
     let mut file_data = Vec::new();
     file.read_to_end(&mut file_data).expect("Failed to read file");
@@ -22,13 +21,11 @@ fn upload_file(file_path: String) -> String {
         "filesize": file_data.len(),
     });
 
-    // ส่ง Metadata และไฟล์ไปยัง Server
     stream.write_all(request.to_string().as_bytes()).unwrap();
     stream.write_all(b"\n").unwrap();
     stream.write_all(&file_data).unwrap();
     stream.flush().unwrap();
 
-    // รอรับ Response
     let mut buffer = vec![0; 1024];
     let n = stream.read(&mut buffer).unwrap();
     let response = String::from_utf8_lossy(&buffer[..n]);

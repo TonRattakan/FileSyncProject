@@ -28,7 +28,7 @@ Test FileSync
 
 [FileSyncProject.zip](https://github.com/TonRattakan/FileSyncProject/archive/refs/heads/main.zip)
 
-1. `Extract FileSyncProject.zip`.
+1. Extract `FileSyncProject.zip`.
 2. Navigate to the `FileSyncProject folder` and double-click **run.bat**.
 
 ## Manual Download & Run

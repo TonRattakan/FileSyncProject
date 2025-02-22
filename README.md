@@ -20,6 +20,10 @@
 
 Test FileSync
 
+## Google Docs
+
+[FileSync in Google Docs](https://docs.google.com/document/d/152E3qQqoM92rUX3k7c2qDRV0P4AzSXz-MSYV1LqXpHw/edit?usp=sharing)
+
 ## Requirements
 - [Rust](https://www.rust-lang.org/tools/install)
 - [NodeJS](https://nodejs.org/en) **(Optional)**

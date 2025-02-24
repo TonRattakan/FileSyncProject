@@ -4,7 +4,7 @@ import shlex
 
 HOST = '127.0.0.1'
 PORT = 65432
-BUFFER_SIZE = 20000
+BUFFER_SIZE = 65536
 SAVE_DIR = "synced_files"
 
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -18,14 +18,14 @@ def handle_client(conn, addr):
 
         if request.startswith("SYNC_REQUEST"):
             try:
-                request_parts = shlex.split(request)  # ใช้ shlex เพื่อรองรับชื่อไฟล์ที่มีช่องว่าง
+                request_parts = shlex.split(request)
                 if len(request_parts) < 3:
                     conn.send("400 Bad Request".encode())
                     print("Sent response to client: 400 Bad Request")
                     return
 
                 file_size = int(request_parts[-1])
-                file_name = request_parts[1]  # ชื่อไฟล์จะอยู่ตรงตำแหน่งนี้แน่นอน
+                file_name = request_parts[1]
 
                 # if file_size <= 0:
                 #     conn.send("400 Bad Request: Invalid file size".encode())

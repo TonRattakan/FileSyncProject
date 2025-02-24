@@ -57,7 +57,7 @@ python server.py
 
 ## Pre-buit Download
 Navigate to the [Releases](https://github.com/TonRattakan/FileSyncProject/releases)
-page and download the latest release for your test FileSyncNet.<br>
+page and download the latest release for test FileSyncNet.<br>
 Launch: `server`, `client`
 
 ## Output

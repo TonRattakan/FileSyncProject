@@ -1,5 +1,5 @@
 @echo off
 
-start cmd /k cargo run --bin filesync_client
+start cmd /k python client.py
 
-start cmd /k cargo run --bin filesync_server
+start cmd /k python server.py

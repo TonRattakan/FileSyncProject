@@ -153,9 +153,9 @@ class FileSyncClient:
 
             for file_name in files:
                 file_path = os.path.join(folder_path, file_name)
-                if os.path.isfile(file_path):  # เช็คว่าเป็นไฟล์ ไม่ใช่โฟลเดอร์
+                if os.path.isfile(file_path):
                     self.file_path.set(file_path)
-                    self.sync_file()  # ใช้ฟังก์ชัน sync_file() ที่มีอยู่แล้ว
+                    self.sync_file()
 
             self.status_label.config(text="Status: Folder Synced Successfully", fg="green")
 

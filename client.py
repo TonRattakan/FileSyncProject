@@ -1,6 +1,6 @@
 import socket
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import os
 import threading
 
@@ -21,33 +21,55 @@ class FileSyncClient:
         self.folder_path = tk.StringVar()
         self.new_file_name = tk.StringVar()
         self.new_file_content = tk.StringVar()
+        self.search_text = tk.StringVar()
 
-        # File Sync UI
-        tk.Label(root, text="Select File to Sync:").pack(pady=5)
-        tk.Entry(root, textvariable=self.file_path, width=50).pack(padx=10, pady=5)
-        tk.Button(root, text="Browse File", command=self.browse_file).pack(pady=5)
-        tk.Button(root, text="Sync File", command=self.start_sync_thread).pack(pady=10)
+        notebook = ttk.Notebook(root)
+        notebook.pack(padx=10, pady=10, expand=True, fill='both')
 
-        # Folder Sync UI
-        tk.Label(root, text="Select Folder to Sync:").pack(pady=5)
-        tk.Entry(root, textvariable=self.folder_path, width=50).pack(padx=10, pady=5)
-        tk.Button(root, text="Browse Folder", command=self.browse_folder).pack(pady=5)
-        tk.Button(root, text="Sync Folder", command=self.start_sync_folder_thread).pack(pady=10)
+        # File Sync Tab
+        file_sync_tab = ttk.Frame(notebook)
+        notebook.add(file_sync_tab, text='FileSync')
 
-        # File Creation UI
-        tk.Label(root, text="Create New Text File:").pack(pady=5)
-        # Entry for file name
-        self.entry_file_name = tk.Entry(root, textvariable=self.new_file_name, width=50, fg="gray")
+        tk.Label(file_sync_tab, text="Select File to Sync:").pack(pady=5)
+        tk.Entry(file_sync_tab, textvariable=self.file_path, width=50).pack(padx=10, pady=5)
+        tk.Button(file_sync_tab, text="Browse File", command=self.browse_file).pack(pady=5)
+        tk.Button(file_sync_tab, text="Sync File", command=self.start_sync_thread).pack(pady=10)
+
+        # Folder Sync Tab
+        folder_sync_tab = ttk.Frame(notebook)
+        notebook.add(folder_sync_tab, text='Sync All Files (Folder)')
+
+        tk.Label(folder_sync_tab, text="Select Folder to Sync:").pack(pady=5)
+        tk.Entry(folder_sync_tab, textvariable=self.folder_path, width=50).pack(padx=10, pady=5)
+        tk.Button(folder_sync_tab, text="Browse Folder", command=self.browse_folder).pack(pady=5)
+        tk.Button(folder_sync_tab, text="Sync Folder", command=self.start_sync_folder_thread).pack(pady=10)
+
+        # File Creation Tab
+        file_create_tab = ttk.Frame(notebook)
+        notebook.add(file_create_tab, text='Create File')
+
+        tk.Label(file_create_tab, text="Create New Text File:").pack(pady=5)
+        self.entry_file_name = tk.Entry(file_create_tab, textvariable=self.new_file_name, width=50, fg="gray")
         self.entry_file_name.pack(padx=10, pady=5)
 
-        # Add placeholder effect
         self.entry_file_name.insert(0, "Enter file name...")
         self.entry_file_name.bind("<FocusIn>", self.clear_placeholder)
         self.entry_file_name.bind("<FocusOut>", self.add_placeholder)
 
-        self.text_area = tk.Text(root, height=5, width=50)
+        self.text_area = tk.Text(file_create_tab, height=5, width=50)
         self.text_area.pack(padx=10, pady=5)
-        tk.Button(root, text="Save File", command=self.create_file).pack(pady=5)
+        tk.Button(file_create_tab, text="Save File", command=self.create_file).pack(pady=5)
+
+        # Find .txt Files Tab
+        find_txt_tab = ttk.Frame(notebook)
+        notebook.add(find_txt_tab, text='Find .txt Files')
+
+        tk.Entry(find_txt_tab, textvariable=self.search_text, width=50).pack(padx=10, pady=5)
+        tk.Button(find_txt_tab, text="Find All .txt Files", command=self.list_txt_files).pack(pady=5)
+        tk.Button(find_txt_tab, text="Find by Text", command=self.find_txt_by_content).pack(pady=5)
+        self.txt_files_listbox = tk.Listbox(find_txt_tab, width=50, height=10)
+        self.txt_files_listbox.pack(padx=10, pady=5)
+        tk.Button(find_txt_tab, text="Sync Selected File", command=self.sync_selected_file).pack(pady=5)
 
         self.status_label = tk.Label(root, text="Status: Idle", fg="blue")
         self.status_label.pack(pady=5)
@@ -108,36 +130,38 @@ class FileSyncClient:
             return
 
         file_size = os.path.getsize(file_path)
-        print(f"Starting sync: {os.path.basename(file_path)} ({file_size} bytes)")
+        file_name = os.path.basename(file_path)
+        print(f"Starting sync: {file_name} ({file_size} bytes)")
 
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((HOST, PORT))
-                file_name = os.path.basename(file_path)
+                s.send(f'SYNC_REQUEST "{file_name}" {file_size}'.encode())
 
-                s.send(f"SYNC_REQUEST {file_name} {file_size}".encode())
                 response = s.recv(BUFFER_SIZE).decode()
-
                 if "SYNC_ACK" in response:
                     with open(file_path, 'rb') as file:
                         sent_size = 0
-                        while chunk := file.read(BUFFER_SIZE):
-                            s.send(chunk)
+                        while True:
+                            chunk = file.read(BUFFER_SIZE)
+                            if not chunk:
+                                break
+                            s.sendall(chunk)
                             sent_size += len(chunk)
-                            print(f"Sending {file_name}... {sent_size}/{file_size} bytes")
+                            print(f"Sent {sent_size}/{file_size} bytes...")
 
                     final_response = s.recv(BUFFER_SIZE).decode()
                     if "TRANSFER_COMPLETE" in final_response:
                         print(f"File '{file_name}' successfully sent ({file_size} bytes)")
-                        print("-" * 80)
                         self.status_label.config(text="Status: File Synced Successfully", fg="green")
                     else:
-                        print("-" * 80)
                         self.status_label.config(text="Status: Sync Failed", fg="red")
                 else:
                     self.status_label.config(text="Status: Sync Rejected", fg="red")
+        
         except Exception as e:
             self.status_label.config(text=f"Status: Error - {e}", fg="red")
+        print("-" * 80)
 
     def sync_folder(self):
         folder_path = self.folder_path.get()
@@ -161,6 +185,49 @@ class FileSyncClient:
 
         except Exception as e:
             self.status_label.config(text=f"Status: Error - {e}", fg="red")
+
+    def list_txt_files(self):
+        self.txt_files_listbox.delete(0, tk.END)
+        try:
+            txt_files = [f for f in os.listdir(LOCAL_SAVE_DIR) if f.endswith('.txt')]
+            if not txt_files:
+                self.txt_files_listbox.insert(tk.END, "No .txt files found.")
+            else:
+                for file in txt_files:
+                    self.txt_files_listbox.insert(tk.END, file)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to list files: {e}")
+
+    def find_txt_by_content(self):
+        search_term = self.search_text.get().strip().lower()
+        self.txt_files_listbox.delete(0, tk.END)
+        found = False
+        
+        try:
+            for file_name in os.listdir(LOCAL_SAVE_DIR):
+                if file_name.endswith('.txt'):
+                    file_path = os.path.join(LOCAL_SAVE_DIR, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        content = file.read().lower()
+                        print(f"Checking file: {file_name}, content: {content[:100]}")
+
+                        if search_term in file_name.lower() or search_term in content:
+                            self.txt_files_listbox.insert(tk.END, file_name)
+                            print(f"FOUND: {file_name}")
+                            found = True
+
+            if not found:
+                print("No matching files found.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to search files: {e}")
+
+    def sync_selected_file(self):
+        selected = self.txt_files_listbox.get(tk.ACTIVE)
+        if selected:
+            self.file_path.set(os.path.join(LOCAL_SAVE_DIR, selected))
+            self.start_sync_thread()
+        else:
+            messagebox.showwarning("Warning", "Please select a file")
 
 def main():
     root = tk.Tk()

@@ -21,6 +21,7 @@ class FileSyncClient:
         self.folder_path = tk.StringVar()
         self.new_file_name = tk.StringVar()
         self.new_file_content = tk.StringVar()
+        self.search_text = tk.StringVar()
 
         notebook = ttk.Notebook(root)
         notebook.pack(padx=10, pady=10, expand=True, fill='both')
@@ -58,6 +59,17 @@ class FileSyncClient:
         self.text_area = tk.Text(file_create_tab, height=5, width=50)
         self.text_area.pack(padx=10, pady=5)
         tk.Button(file_create_tab, text="Save File", command=self.create_file).pack(pady=5)
+
+        # Find .txt Files Tab
+        find_txt_tab = ttk.Frame(notebook)
+        notebook.add(find_txt_tab, text='Find .txt Files')
+
+        tk.Entry(find_txt_tab, textvariable=self.search_text, width=50).pack(padx=10, pady=5)
+        tk.Button(find_txt_tab, text="Find All .txt Files", command=self.list_txt_files).pack(pady=5)
+        tk.Button(find_txt_tab, text="Find by Text", command=self.find_txt_by_content).pack(pady=5)
+        self.txt_files_listbox = tk.Listbox(find_txt_tab, width=50, height=10)
+        self.txt_files_listbox.pack(padx=10, pady=5)
+        tk.Button(find_txt_tab, text="Sync Selected File", command=self.sync_selected_file).pack(pady=5)
 
         self.status_label = tk.Label(root, text="Status: Idle", fg="blue")
         self.status_label.pack(pady=5)
@@ -173,6 +185,49 @@ class FileSyncClient:
 
         except Exception as e:
             self.status_label.config(text=f"Status: Error - {e}", fg="red")
+
+    def list_txt_files(self):
+        self.txt_files_listbox.delete(0, tk.END)
+        try:
+            txt_files = [f for f in os.listdir(LOCAL_SAVE_DIR) if f.endswith('.txt')]
+            if not txt_files:
+                self.txt_files_listbox.insert(tk.END, "No .txt files found.")
+            else:
+                for file in txt_files:
+                    self.txt_files_listbox.insert(tk.END, file)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to list files: {e}")
+
+    def find_txt_by_content(self):
+        search_term = self.search_text.get().strip().lower()
+        self.txt_files_listbox.delete(0, tk.END)
+        found = False
+        
+        try:
+            for file_name in os.listdir(LOCAL_SAVE_DIR):
+                if file_name.endswith('.txt'):
+                    file_path = os.path.join(LOCAL_SAVE_DIR, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        content = file.read().lower()
+                        print(f"Checking file: {file_name}, content: {content[:100]}")
+
+                        if search_term in file_name.lower() or search_term in content:
+                            self.txt_files_listbox.insert(tk.END, file_name)
+                            print(f"FOUND: {file_name}")
+                            found = True
+
+            if not found:
+                print("No matching files found.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to search files: {e}")
+
+    def sync_selected_file(self):
+        selected = self.txt_files_listbox.get(tk.ACTIVE)
+        if selected:
+            self.file_path.set(os.path.join(LOCAL_SAVE_DIR, selected))
+            self.start_sync_thread()
+        else:
+            messagebox.showwarning("Warning", "Please select a file")
 
 def main():
     root = tk.Tk()

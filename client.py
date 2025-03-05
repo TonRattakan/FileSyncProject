@@ -3,11 +3,16 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import os
 import threading
+import shlex
 
 HOST = '127.0.0.1'
 PORT = 65432
 BUFFER_SIZE = 65536
 LOCAL_SAVE_DIR = './synced_files/'
+DEST_DIR = "destination_folder"
+
+os.makedirs(LOCAL_SAVE_DIR, exist_ok=True)
+os.makedirs(DEST_DIR, exist_ok=True)
 
 if not os.path.exists(LOCAL_SAVE_DIR):
     os.makedirs(LOCAL_SAVE_DIR)
@@ -71,6 +76,11 @@ class FileSyncClient:
         self.txt_files_listbox.pack(padx=10, pady=5)
         tk.Button(find_txt_tab, text="Sync Selected File", command=self.sync_selected_file).pack(pady=5)
 
+        # select_button = ttk.Frame(notebook)
+        # notebook.add(select_button, text='File Selector')
+        select_button = tk.Button(root, text="Send File", command=select_file)
+        select_button.pack(pady=10)
+
         self.status_label = tk.Label(root, text="Status: Idle", fg="blue")
         self.status_label.pack(pady=5)
 
@@ -104,7 +114,7 @@ class FileSyncClient:
         file_content = self.text_area.get("1.0", tk.END).strip()
 
         if not file_name:
-            messagebox.showwarning("Warning", "Please enter a file name")
+            print("[Warning] Please enter a file name")
             return
 
         if not file_name.endswith(".txt"):
@@ -116,52 +126,88 @@ class FileSyncClient:
             with open(file_path, "w", encoding="utf-8") as file:
                 file.write(file_content)
 
-            messagebox.showinfo("Success", f"File '{file_name}' created successfully!")
+            print(f"[Success] File '{file_name}' created successfully!")
             self.status_label.config(text=f"Status: File '{file_name}' saved", fg="green")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to create file: {e}")
+            print(f"[Error] Failed to create file: {e}")
             self.status_label.config(text="Status: Error", fg="red")
+
+        print("-" * 120)
 
     def sync_file(self):
         file_path = self.file_path.get()
         if not file_path:
             messagebox.showwarning("Warning", "Please select a file")
             return
-
-        file_size = os.path.getsize(file_path)
+        
         file_name = os.path.basename(file_path)
-        print(f"Starting sync: {file_name} ({file_size} bytes)")
+        file_name_escaped = shlex.quote(file_name)
 
+        if not os.path.exists(file_path):
+            error_msg = f"SYNC_ERROR 404 Not Found {file_name_escaped}"
+            print(f"[Client] -> {error_msg}")
+            print(f"[FAILED] File not found: {file_path}")
+            print("-" * 120)
+            self.status_label.config(text=f"Status: File Not Found", fg="red")
+            return
+        
         try:
+            file_size = os.path.getsize(file_path)
+            if file_size == 0:
+                print(f"[Client] -> SYNC_ERROR 400 Bad Request {file_name_escaped}")
+                print("[ERROR] File size is 0 bytes. Skipping sync.")
+                print("-" * 120)
+                return
+            
+            print(f"[Client] -> SYNC_REQUEST {file_name_escaped} {file_size}")
+            
+            # print(f"Starting sync: {file_name} ({file_size} bytes)")
+        
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((HOST, PORT))
-                s.send(f'SYNC_REQUEST "{file_name}" {file_size}'.encode())
+                sync_request = f'SYNC_REQUEST {file_name_escaped} {file_size}'
+                print(f"[Client] -> Sending: {sync_request}")
+                s.send(sync_request.encode())
 
                 response = s.recv(BUFFER_SIZE).decode()
+                print(f"[Client] <- Received: {response}")
+
                 if "SYNC_ACK" in response:
                     with open(file_path, 'rb') as file:
                         sent_size = 0
-                        while True:
-                            chunk = file.read(BUFFER_SIZE)
-                            if not chunk:
-                                break
+                        # while True:
+                        #     chunk = file.read(BUFFER_SIZE)
+                        #     if not chunk:
+                        #         break
+                        for chunk in iter(lambda: file.read(BUFFER_SIZE), b''):
                             s.sendall(chunk)
                             sent_size += len(chunk)
                             print(f"Sent {sent_size}/{file_size} bytes...")
 
+                    # s.sendall(b"<EOF>")
+                    s.shutdown(socket.SHUT_WR)
+
                     final_response = s.recv(BUFFER_SIZE).decode()
+                    print(f"[Client] <- Received: {final_response}")
+
                     if "TRANSFER_COMPLETE" in final_response:
                         print(f"File '{file_name}' successfully sent ({file_size} bytes)")
                         self.status_label.config(text="Status: File Synced Successfully", fg="green")
                     else:
+                        print(f"[Client] -> SYNC_ERROR 500 Internal Server Error {file_name_escaped}")
+                        print(f"[ERROR] Unexpected Client response: {final_response}")
                         self.status_label.config(text="Status: Sync Failed", fg="red")
                 else:
+                    print(f"[Client] -> SYNC_ERROR 403 Forbidden {file_name_escaped}")
+                    print(f"[ERROR] Sync request rejected: {response}")
                     self.status_label.config(text="Status: Sync Rejected", fg="red")
-        
+
         except Exception as e:
+            print(f"[Client] -> SYNC_ERROR 500 Internal Server Error {file_name_escaped}")
+            print(f"[ERROR] {e}")
             self.status_label.config(text=f"Status: Error - {e}", fg="red")
-        print("-" * 80)
+        print("-" * 120)
 
     def sync_folder(self):
         folder_path = self.folder_path.get()
@@ -228,6 +274,26 @@ class FileSyncClient:
             self.start_sync_thread()
         else:
             messagebox.showwarning("Warning", "Please select a file")
+
+def send_log_to_server(message):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            client_socket.connect((HOST, PORT))
+            client_socket.sendall(f"LOG {message}".encode())
+    except Exception as e:
+        print(f"Error sending log to server: {e}")
+
+def select_file():
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        dest_path = os.path.join(DEST_DIR, os.path.basename(file_path))
+        os.rename(file_path, dest_path)
+        log_message = f"File moved: {file_path} -> {dest_path}"
+        print(log_message)
+
+        # Send log to server
+        send_log_to_server(log_message)
+        print("-" * 120)
 
 def main():
     root = tk.Tk()

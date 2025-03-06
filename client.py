@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, ttk
 import os
 import threading
 import shlex
+import shutil
 
 HOST = '127.0.0.1'
 PORT = 65432
@@ -143,26 +144,26 @@ class FileSyncClient:
         
         file_name = os.path.basename(file_path)
         file_name_escaped = shlex.quote(file_name)
+        dest_path = os.path.join(DEST_DIR, file_name)
 
         if not os.path.exists(file_path):
-            error_msg = f"SYNC_ERROR 404 Not Found {file_name_escaped}"
-            print(f"[Client] -> {error_msg}")
-            print(f"[FAILED] File not found: {file_path}")
-            print("-" * 120)
-            self.status_label.config(text=f"Status: File Not Found", fg="red")
+            self.log_error(f"SYNC_ERROR 404 Not Found {file_name_escaped}")
             return
         
         try:
             file_size = os.path.getsize(file_path)
             if file_size == 0:
-                print(f"[Client] -> SYNC_ERROR 400 Bad Request {file_name_escaped}")
-                print("[ERROR] File size is 0 bytes. Skipping sync.")
-                print("-" * 120)
+                self.log_error(f"SYNC_ERROR 400 Bad Request {file_name_escaped}")
                 return
-            
-            print(f"[Client] -> SYNC_REQUEST {file_name_escaped} {file_size}")
-            
-            # print(f"Starting sync: {file_name} ({file_size} bytes)")
+
+            os.makedirs(DEST_DIR, exist_ok=True)
+        
+            if os.path.exists(dest_path) and os.path.getmtime(file_path) <= os.path.getmtime(dest_path):
+                print(f"[Client] -> File '{file_name}' is already up-to-date.")
+                self.status_label.config(text="Status: File is Up-to-Date", fg="blue")
+                return
+        
+            shutil.copy2(file_path, dest_path)
         
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((HOST, PORT))
@@ -176,38 +177,33 @@ class FileSyncClient:
                 if "SYNC_ACK" in response:
                     with open(file_path, 'rb') as file:
                         sent_size = 0
-                        # while True:
-                        #     chunk = file.read(BUFFER_SIZE)
-                        #     if not chunk:
-                        #         break
                         for chunk in iter(lambda: file.read(BUFFER_SIZE), b''):
                             s.sendall(chunk)
                             sent_size += len(chunk)
                             print(f"Sent {sent_size}/{file_size} bytes...")
-
-                    # s.sendall(b"<EOF>")
-                    s.shutdown(socket.SHUT_WR)
-
+                    
                     final_response = s.recv(BUFFER_SIZE).decode()
                     print(f"[Client] <- Received: {final_response}")
 
                     if "TRANSFER_COMPLETE" in final_response:
-                        print(f"File '{file_name}' successfully sent ({file_size} bytes)")
-                        self.status_label.config(text="Status: File Synced Successfully", fg="green")
+                        self.log_message(f"File '{file_name}' successfully synced with server")
+                        self.log_message(f"File '{file_name}' successfully copied to {DEST_DIR}")
+                        print("-" * 120)
                     else:
-                        print(f"[Client] -> SYNC_ERROR 500 Internal Server Error {file_name_escaped}")
-                        print(f"[ERROR] Unexpected Client response: {final_response}")
-                        self.status_label.config(text="Status: Sync Failed", fg="red")
+                        self.log_error(f"SYNC_ERROR 500 Internal Server Error {file_name_escaped}")
+                        print("-" * 120)
                 else:
-                    print(f"[Client] -> SYNC_ERROR 403 Forbidden {file_name_escaped}")
-                    print(f"[ERROR] Sync request rejected: {response}")
-                    self.status_label.config(text="Status: Sync Rejected", fg="red")
-
+                    self.log_error(f"SYNC_ERROR 403 Forbidden {file_name_escaped}")
         except Exception as e:
-            print(f"[Client] -> SYNC_ERROR 500 Internal Server Error {file_name_escaped}")
-            print(f"[ERROR] {e}")
-            self.status_label.config(text=f"Status: Error - {e}", fg="red")
-        print("-" * 120)
+            self.log_error(f"SYNC_ERROR 500 Internal Server Error {file_name_escaped}: {e}")
+    
+    def log_message(self, message):
+        print(f"[Client] -> {message}")
+        self.status_label.config(text=f"Status: {message}", fg="green")
+
+    def log_error(self, message):
+        print(f"[Client] -> {message}")
+        self.status_label.config(text=f"Status: Error - {message}", fg="red")
 
     def sync_folder(self):
         folder_path = self.folder_path.get()

@@ -60,10 +60,15 @@ def handle_client(conn, addr):
                         os.fsync(file.fileno())
                         print(f"Receiving {file_name}... {received_size}/{file_size} bytes")
 
-                actual_size = os.path.getsize(file_path)
-                print(f"Expected: {file_size}, Received: {received_size}, File size: {actual_size}")
+                # actual_size = os.path.getsize(file_path)
+                # print(f"Expected: {file_size}, Received: {received_size}, File size: {actual_size}")
 
-                if received_size == file_size and actual_size == file_size:
+                # if received_size == file_size and actual_size == file_size:
+                actual_size = os.path.getsize(file_path)
+                print(f"[Server] -> Debug: Expected {file_size}, Received {received_size}, Actual File Size {actual_size}")
+
+                if received_size >= file_size and actual_size >= file_size:
+
                     response = "TRANSFER_COMPLETE 201 Created"
                     conn.send(response.encode())
                     print(f"[Server] -> {response}")

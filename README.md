@@ -35,10 +35,15 @@
 
 # FileSyncProject
 
-Test FileSyncNet
+FileSyncNet is a program for **synchronizing and uploading files** between devices in a network in real-time. It enables users to **share, update, and copy files** to a designated destination automatically over the network. The program supports both **one-to-one file synchronization** and **distribution to multiple devices**, similar to uploading files to **Google Drive** or other **cloud storage services**.
+
+## Google Docs
+
+[FileSyncNet in Google Docs](https://docs.google.com/document/d/152E3qQqoM92rUX3k7c2qDRV0P4AzSXz-MSYV1LqXpHw/edit?tab=t.0)
 
 ## Requirements
-- [Python](https://www.python.org/downloads/) **(version 3.11)**
+- [Python](https://www.python.org/downloads/) **(Optional: version 3.11)**
+- [Python in Microsoft Store](https://apps.microsoft.com/detail/9NRWMJP3717K?hl=en-us&gl=KR&ocid=pdpshare)
 
 ## Download & Run
 
@@ -63,12 +68,24 @@ Launch: `server`, `client`
 ## Output
 The following message should appear:
 
-**Connected by ('127.0.0.1', 61207)**  
-**Received message from client: SYNC_REQUEST texttest.txt 4**  
-**Preparing to receive file: texttest.txt (4 bytes)**  
-**Receiving texttest.txt... 4/4 bytes**  
-**File 'texttest.txt' (4 bytes) synced successfully!**  
-**Connection with ('127.0.0.1', 61207) closed**  
-**--------------------------------------------------------------------------------**  
+**Client:** <br>
+**[Client] -> Sending: SYNC_REQUEST test.txt 4** <br>
+**[Client] <- Received: SYNC_ACK 200 OK** <br>
+**Sent 4/4 bytes...** <br>
+**[Client] <- Received: TRANSFER_COMPLETE 201 Created**<br>
+**[Client] -> File 'test.txt' successfully synced with server**<br>
+**[Client] -> File 'test.txt' successfully copied to destination_folder**<br>
+
+**Server:** <br>
+**Server started on 127.0.0.1:65432**<br>
+**Connected by ('127.0.0.1', 52705)**<br>
+**Received message from client: SYNC_REQUEST test.txt 4**<br>
+**Preparing to receive file: test.txt (4 bytes)**<br>
+**[Server] -> SYNC_ACK 200 OK**<br>
+**Receiving test.txt... 4/4 bytes**<br>
+**[Server] -> Debug: Expected 4, Received 4, Actual File Size 4**<br>
+**[Server] -> TRANSFER_COMPLETE 201 Created**<br>
+**File 'test.txt' received successfully! (4 bytes)**<br>
+**Connection with ('127.0.0.1', 52705) closed**<br>
 
 ![filesync](filesync.png)

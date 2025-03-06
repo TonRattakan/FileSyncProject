@@ -65,6 +65,9 @@ Navigate to the [Releases](https://github.com/TonRattakan/FileSyncProject/releas
 page and download the latest release for test FileSyncNet.<br>
 Launch: `server`, `client`
 
+(Optional)
+[Gofile](https://gofile.io/d/hajAOQ)
+
 ## Output
 The following message should appear:
 
